@@ -1,11 +1,11 @@
 get:
 	go get -v -t -d ./...
 
-run:
-	go run main.go
+run-client:
+	go run client-main.go
 
-run-with-debug-mode:
-	go run main.go -debug
+run-client-with-debug-mode:
+	go run client-main.go -debug
 
 test:
 	go test -v ./...
