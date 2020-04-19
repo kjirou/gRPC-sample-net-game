@@ -35,29 +35,6 @@ type screenText struct {
 	Foreground termbox.Attribute
 }
 
-func createSequentialScreenTexts(position *utils.MatrixPosition, parts []*screenText) []*screenText {
-	texts := make([]*screenText, 0)
-	deltaX := 0
-	for _, part := range parts {
-		pos := &utils.MatrixPosition{
-			Y: position.GetY(),
-			X: position.GetX() + deltaX,
-		}
-		deltaX += len(part.Text)
-		fg := termbox.ColorWhite
-		if part.Foreground != 0 {
-			fg = part.Foreground
-		}
-		text := screenText{
-			Position: pos,
-			Text: part.Text,
-			Foreground: fg,
-		}
-		texts = append(texts, &text)
-	}
-	return texts
-}
-
 type ScreenProps struct {
 	FieldCells [][]*ScreenCellProps
 	FloorNumber int
@@ -68,7 +45,6 @@ type ScreenProps struct {
 
 type Screen struct {
 	matrix [][]*screenCell
-	staticTexts []*screenText
 }
 
 func (screen *Screen) measureRowLength() int {
@@ -132,7 +108,6 @@ func (screen *Screen) Render(props *ScreenProps) {
 
 	// Prepare texts.
 	texts := make([]*screenText, 0)
-	texts = append(texts, screen.staticTexts...)
 	remainingTimeText := fmt.Sprintf("%4.1f", props.RemainingTime)
 	timeText := &screenText{
 		Position: &utils.MatrixPosition{Y: 3, X: 25},
@@ -184,57 +159,7 @@ func CreateScreen(rowLength int, columnLength int) *Screen {
 		matrix[y] = row
 	}
 
-	staticTexts := make([]*screenText, 0)
-
-	titleText := &screenText{
-		Position: &utils.MatrixPosition{Y: 0, X: 2},
-		Text: "[ A Tower of Go ]",
-		Foreground: termbox.ColorWhite,
-	}
-	staticTexts = append(staticTexts, titleText)
-
-	operationTitleText := &screenText{
-		Position: &utils.MatrixPosition{Y: 11, X: 25},
-		Text: "[ Operations ]",
-		Foreground: termbox.ColorWhite,
-	}
-	staticTexts = append(staticTexts, operationTitleText)
-
-	var sKeyHelpTextParts = make([]*screenText, 0)
-	sKeyHelpTextParts = append(sKeyHelpTextParts, &screenText{Text: "\""})
-	sKeyHelpTextParts = append(sKeyHelpTextParts, &screenText{Text: "s", Foreground: termbox.ColorYellow})
-	sKeyHelpTextParts = append(sKeyHelpTextParts, &screenText{Text: "\" ... Start or restart a new game."})
-	sKeyHelpTexts := createSequentialScreenTexts(&utils.MatrixPosition{Y: 12, X: 25}, sKeyHelpTextParts)
-	staticTexts = append(staticTexts, sKeyHelpTexts...)
-
-	var moveKeysHelpTextParts = make([]*screenText, 0)
-	moveKeysHelpTextParts =
-		append(moveKeysHelpTextParts, &screenText{Text: "Arrow keys", Foreground: termbox.ColorYellow})
-	moveKeysHelpTextParts = append(moveKeysHelpTextParts, &screenText{Text: " or \""})
-	moveKeysHelpTextParts =
-		append(moveKeysHelpTextParts, &screenText{Text: "k,l,j,h", Foreground: termbox.ColorYellow})
-	moveKeysHelpTextParts = append(moveKeysHelpTextParts, &screenText{Text: "\" ... Move the player."})
-	staticTexts = append(
-		staticTexts,
-		createSequentialScreenTexts(&utils.MatrixPosition{Y: 13, X: 25}, moveKeysHelpTextParts)...
-	)
-
-	description1Text := &screenText{
-		Position: &utils.MatrixPosition{Y: 17, X: 3},
-		Text: "Move the player in the upper left to reach the stairs in the lower right.",
-		Foreground: termbox.ColorWhite,
-	}
-	staticTexts = append(staticTexts, description1Text)
-
-	description2Text := &screenText{
-		Position: &utils.MatrixPosition{Y: 18, X: 3},
-		Text: "The score is the number of floors that can be reached within 30 seconds.",
-		Foreground: termbox.ColorWhite,
-	}
-	staticTexts = append(staticTexts, description2Text)
-
 	return &Screen{
 		matrix: matrix,
-		staticTexts: staticTexts,
 	}
 }
