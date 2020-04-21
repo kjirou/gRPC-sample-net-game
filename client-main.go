@@ -41,14 +41,18 @@ func runMainLoop(controller *controller.Controller) {
 		interval := controller.CalculateIntervalToNextMainLoop(time.Now())
 		time.Sleep(interval)
 
-		newState, err := controller.HandleMainLoop(interval)
+		newState, handleMainLoopErr := controller.HandleMainLoop(interval)
 
-		if err != nil {
+		if handleMainLoopErr != nil {
 			termbox.Close()
-			errMessage, _ := fmt.Printf("%+v", err)
+			errMessage, _ := fmt.Printf("%+v", handleMainLoopErr)
 			panic(errMessage)
 		} else if newState != nil {
-			controller.Dispatch(newState)
+			dispatchErr := controller.Dispatch(newState)
+			if dispatchErr != nil {
+				errMessage, _ := fmt.Printf("%+v", dispatchErr)
+				panic(errMessage)
+			}
 			drawTerminal(controller.GetScreen())
 		}
 	}

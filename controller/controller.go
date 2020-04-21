@@ -170,7 +170,6 @@ func (controller *Controller) Dispatch(newState *models.State) error {
 	controller.state = newState
 	screenProps, err := mapStateModelToScreenProps(controller.state)
 	controller.screen.Render(screenProps)
-	// TODO: Error handling.
 	return err
 }
 
@@ -220,7 +219,10 @@ func CreateController() (*Controller, error) {
 	controller.resetKeyInputs()
 	controller.state = state
 	controller.screen = screen
-	controller.Dispatch(state)
+	dispatchErr := controller.Dispatch(state)
+	if dispatchErr != nil {
+		return nil, errors.WithStack(dispatchErr)
+	}
 
 	return controller, nil
 }
