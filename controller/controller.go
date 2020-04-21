@@ -209,9 +209,9 @@ func CreateController() (*Controller, error) {
 	controller := &Controller{}
 
 	state := models.CreateState()
-	err := state.SetWelcomeData()
-	if err != nil {
-		return controller, err
+	setWelcomeDataErr := state.SetWelcomeData()
+	if setWelcomeDataErr != nil {
+		return nil, errors.WithStack(setWelcomeDataErr)
 	}
 
 	screen := views.CreateScreen(24, 80)
