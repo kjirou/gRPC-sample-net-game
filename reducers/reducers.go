@@ -108,9 +108,9 @@ func WalkHero(state models.State, elapsedTime time.Duration, direction FourDirec
 		X: nextX,
 	}
 	if nextPosition.Validate(field.MeasureRowLength(), field.MeasureColumnLength()) {
-		element, err := field.At(nextPosition)
-		if err != nil {
-			return &state, errors.WithStack(err)
+		element, elementOk := field.At(nextPosition)
+		if !elementOk {
+			return &state, errors.Errorf("The %v position does not exist on the field.", nextPosition)
 		} else if element.IsObjectEmpty() {
 			err := field.MoveObject(position, nextPosition)
 			return &state, errors.WithStack(err)

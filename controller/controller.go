@@ -23,6 +23,8 @@ import (
 	"github.com/kjirou/gRPC-sample-net-game/reducers"
 	"github.com/kjirou/gRPC-sample-net-game/views"
 	"github.com/nsf/termbox-go"
+	"github.com/pkg/errors"
+	"math"
 	"time"
 )
 
@@ -55,19 +57,40 @@ func mapFieldElementToScreenCellProps(fieldElement *models.FieldElement) *views.
 	}
 }
 
-func mapStateModelToScreenProps(state *models.State) *views.ScreenProps {
+func mapStateModelToScreenProps(state *models.State) (*views.ScreenProps, error) {
 	game := state.GetGame()
 	field := state.GetField()
 
+	heroElement, heroElementErr := field.GetElementOfHero()
+	if heroElementErr != nil {
+		return nil, errors.WithStack(heroElementErr)
+	}
+	heroPosition := heroElement.GetPosition()
+
 	// Cells of the field.
-	fieldRowLength := field.MeasureRowLength()
-	fieldColumnLength := field.MeasureColumnLength()
-	fieldCells := make([][]*views.ScreenCellProps, fieldRowLength)
-	for y := 0; y < fieldRowLength; y++ {
-		cellsRow := make([]*views.ScreenCellProps, fieldColumnLength)
-		for x := 0; x < fieldColumnLength; x++ {
-			fieldElement, _ := field.At(&utils.MatrixPosition{Y: y, X: x})
-			cellsRow[x] = mapFieldElementToScreenCellProps(fieldElement)
+	fieldCellsRowLength := 13
+	fieldCellsColumnLength := 21
+	fieldCellsCenterPosition := &utils.MatrixPosition{
+		Y: int(math.Ceil(float64(fieldCellsRowLength)/2-1)),
+		X: int(math.Ceil(float64(fieldCellsColumnLength)/2-1)),
+	}
+	fieldCells := make([][]*views.ScreenCellProps, fieldCellsRowLength)
+	for y := 0; y < fieldCellsRowLength; y++ {
+		cellsRow := make([]*views.ScreenCellProps, fieldCellsColumnLength)
+		for x := 0; x < fieldCellsColumnLength; x++ {
+			fieldElement, fieldElementOk := field.At(&utils.MatrixPosition{
+				Y: y - fieldCellsCenterPosition.GetY() + heroPosition.GetY(),
+				X: x - fieldCellsCenterPosition.GetX() + heroPosition.GetX(),
+			})
+			if fieldElementOk {
+				cellsRow[x] = mapFieldElementToScreenCellProps(fieldElement)
+			} else {
+				cellsRow[x] = &views.ScreenCellProps{
+					Symbol: ' ',
+					Foreground: termbox.ColorWhite,
+					Background: termbox.ColorBlack,
+				}
+			}
 		}
 		fieldCells[y] = cellsRow
 	}
@@ -101,7 +124,7 @@ func mapStateModelToScreenProps(state *models.State) *views.ScreenProps {
 		FloorNumber: game.GetFloorNumber(),
 		LankMessage: lankMessage,
 		LankMessageForeground: lankMessageForeground,
-	}
+	}, nil
 }
 
 type Controller struct {
@@ -143,10 +166,11 @@ func (controller *Controller) CalculateIntervalToNextMainLoop(now time.Time) tim
 	return nextInterval
 }
 
-func (controller *Controller) Dispatch(newState *models.State) {
+func (controller *Controller) Dispatch(newState *models.State) error {
 	controller.state = newState
-	screenProps := mapStateModelToScreenProps(controller.state)
+	screenProps, err := mapStateModelToScreenProps(controller.state)
 	controller.screen.Render(screenProps)
+	return err
 }
 
 func (controller *Controller) HandleMainLoop(elapsedTime time.Duration) (*models.State, error) {
@@ -185,9 +209,9 @@ func CreateController() (*Controller, error) {
 	controller := &Controller{}
 
 	state := models.CreateState()
-	err := state.SetWelcomeData()
-	if err != nil {
-		return controller, err
+	setWelcomeDataErr := state.SetWelcomeData()
+	if setWelcomeDataErr != nil {
+		return nil, errors.WithStack(setWelcomeDataErr)
 	}
 
 	screen := views.CreateScreen(24, 80)
@@ -195,7 +219,10 @@ func CreateController() (*Controller, error) {
 	controller.resetKeyInputs()
 	controller.state = state
 	controller.screen = screen
-	controller.Dispatch(state)
+	dispatchErr := controller.Dispatch(state)
+	if dispatchErr != nil {
+		return nil, errors.WithStack(dispatchErr)
+	}
 
 	return controller, nil
 }

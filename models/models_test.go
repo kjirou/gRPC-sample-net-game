@@ -32,12 +32,10 @@ func TestField_At_NotTD(t *testing.T) {
 		testCases = append(testCases, testCase{Y: 0, X: 3})
 		for _, tc := range testCases {
 			tc := tc
-			t.Run(fmt.Sprintf("Y=%d,X=%dはエラーを返す", tc.Y, tc.X), func(t *testing.T) {
-				_, err := field.At(&utils.MatrixPosition{Y: tc.Y, X: tc.X})
-				if err == nil {
-					t.Fatal("エラーを返さない")
-				} else if !strings.Contains(err.Error(), " position ") {
-					t.Fatal("意図したエラーメッセージではない")
+			t.Run(fmt.Sprintf("Y=%d,X=%dの第2戻り値はfalseを返す", tc.Y, tc.X), func(t *testing.T) {
+				_, ok := field.At(&utils.MatrixPosition{Y: tc.Y, X: tc.X})
+				if ok {
+					t.Fatal("falseを返さない")
 				}
 			})
 		}
@@ -123,8 +121,8 @@ func TestField_ResetMaze_NotTD(t *testing.T) {
 
 	t.Run("ヒーローが存在していたとき、ヒーローは削除される", func(t *testing.T) {
 		field := createField(7, 7)
-		element, err := field.At(HeroPosition)
-		if err != nil {
+		element, elementOk := field.At(HeroPosition)
+		if !elementOk {
 			t.Fatal("ヒーローの配置に失敗する")
 		}
 		element.UpdateObjectClass("hero")

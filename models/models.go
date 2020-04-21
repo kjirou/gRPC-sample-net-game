@@ -51,15 +51,15 @@ func (field *Field) MeasureColumnLength() int {
 	return len(field.matrix[0])
 }
 
-func (field *Field) At(position *utils.MatrixPosition) (*FieldElement, error) {
+func (field *Field) At(position *utils.MatrixPosition) (*FieldElement, bool) {
 	y := position.GetY()
 	x := position.GetX()
 	if y < 0 || y > field.MeasureRowLength()-1 {
-		return &FieldElement{}, errors.Errorf("That position (Y=%d) does not exist on the field.", y)
+		return &FieldElement{}, false
 	} else if x < 0 || x > field.MeasureColumnLength()-1 {
-		return &FieldElement{}, errors.Errorf("That position (X=%d) does not exist on the field.", x)
+		return &FieldElement{}, false
 	}
-	return field.matrix[y][x], nil
+	return field.matrix[y][x], true
 }
 
 func (field *Field) findElementsByObjectClass(objectClass string) []*FieldElement {
@@ -86,17 +86,17 @@ func (field *Field) GetElementOfHero() (*FieldElement, error) {
 }
 
 func (field *Field) MoveObject(from *utils.MatrixPosition, to *utils.MatrixPosition) error {
-	fromElement, err := field.At(from)
-	if err != nil {
-		return err
+	fromElement, fromElementOk := field.At(from)
+	if !fromElementOk {
+		return errors.New("The `from` position does not exist on the field.")
 	} else if fromElement.IsObjectEmpty() {
-		return errors.Errorf("The object to be moved does not exist.")
+		return errors.New("The object to be moved does not exist.")
 	}
-	toElement, err := field.At(to)
-	if err != nil {
-		return err
+	toElement, toElementOk := field.At(to)
+	if !toElementOk {
+		return errors.New("The `to` position does not exist on the field.")
 	} else if !toElement.IsObjectEmpty() {
-		return errors.Errorf("An object exists at the destination.")
+		return errors.New("An object exists at the destination.")
 	}
 	toElement.UpdateObjectClass(fromElement.GetObjectClass())
 	fromElement.UpdateObjectClass("empty")
@@ -112,10 +112,7 @@ func (field *Field) ResetMaze() error {
 	}
 	for y, mazeRow := range mazeCells {
 		for x, mazeCell := range mazeRow {
-			element, err := field.At(&utils.MatrixPosition{Y: y, X: x})
-			if err != nil {
-				return err
-			}
+			element, _ := field.At(&utils.MatrixPosition{Y: y, X: x})
 			switch mazeCell.Content {
 			case utils.MazeCellContentEmpty:
 				element.UpdateObjectClass("empty")
@@ -229,16 +226,16 @@ func (state *State) SetWelcomeData() error {
 	field := state.GetField()
 
 	// Place a hero to be the player's alter ego.
-	heroFieldElement, err := field.At(HeroPosition)
-	if err != nil {
-		return err
+	heroFieldElement, heroFieldElementOk := field.At(HeroPosition)
+	if !heroFieldElementOk {
+		return errors.New("The hero's position does not exist on the field.")
 	}
 	heroFieldElement.UpdateObjectClass("hero")
 
 	// Place an upstairs.
-	upstairsFieldElement, err := field.At(UpstairsPosition)
-	if err != nil {
-		return err
+	upstairsFieldElement, upstairsFieldElementOk := field.At(UpstairsPosition)
+	if !upstairsFieldElementOk {
+		return errors.New("The upstairs' position does not exist on the field.")
 	}
 	upstairsFieldElement.UpdateFloorObjectClass("upstairs")
 
