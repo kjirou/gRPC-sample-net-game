@@ -50,6 +50,10 @@ func mapFieldElementToScreenCellProps(fieldElement *models.FieldElement) *views.
 			fg = termbox.ColorGreen
 		}
 	}
+	// TODO: ZATSU
+	if len(fieldElement.FieldEffects) > 0 {
+		bg = termbox.ColorRed
+	}
 	return &views.ScreenCellProps{
 		Symbol: symbol,
 		Foreground: fg,
@@ -194,6 +198,9 @@ func (controller *Controller) HandleMainLoop(elapsedTime time.Duration) (*models
 		newState, err = reducers.WalkHero(*controller.state, elapsedTime, reducers.FourDirectionDown)
 	case key == termbox.KeyArrowLeft || ch == 'h':
 		newState, err = reducers.WalkHero(*controller.state, elapsedTime, reducers.FourDirectionLeft)
+	// The hero acts.
+	case ch == 'f':
+		newState, err = reducers.HeroActs(*controller.state, elapsedTime)
 	default:
 		newState, err = reducers.AdvanceOnlyTime(*controller.state, elapsedTime)
 	}

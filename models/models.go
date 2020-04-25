@@ -9,7 +9,41 @@ import (
 var HeroPosition = &utils.MatrixPosition{Y: 1, X: 1}
 var UpstairsPosition = &utils.MatrixPosition{Y: 11, X: 19}
 
+type FieldEffect struct {
+	Area []*utils.MatrixPosition
+	// A State.mainLoopNumber when it was created.
+	createdAt int
+	duration int
+}
+
+func (fieldEffect *FieldEffect) CalculateRemainingDuration(mainLoopNumber int) int {
+	remainingDuration := fieldEffect.createdAt + fieldEffect.duration - mainLoopNumber
+	if remainingDuration < 0 {
+		return 0
+	}
+	return remainingDuration
+}
+
+type Adventurer struct {
+}
+
+func (adventurer *Adventurer) Act(mainLoopNumber int, position *utils.MatrixPosition) []*FieldEffect {
+	fieldEffects := make([]*FieldEffect, 0)
+	fieldEffects = append(fieldEffects, &FieldEffect{
+		Area: []*utils.MatrixPosition{
+			&utils.MatrixPosition{
+				Y: position.GetY() - 1,
+				X: position.GetX(),
+			},
+		},
+		duration: 3,
+		createdAt: mainLoopNumber,
+	})
+	return fieldEffects
+}
+
 type FieldElement struct {
+	FieldEffects []*FieldEffect
 	floorObjectClass string
 	objectClass string
 	position *utils.MatrixPosition
@@ -41,6 +75,14 @@ func (fieldElement *FieldElement) UpdateFloorObjectClass(class string) {
 
 type Field struct {
 	matrix [][]*FieldElement
+}
+
+func (field *Field) CleanFieldEffects() {
+	for _, row := range field.matrix {
+		for _, element := range row {
+			element.FieldEffects = make([]*FieldEffect, 0)
+		}
+	}
 }
 
 func (field *Field) MeasureRowLength() int {
@@ -186,10 +228,6 @@ func (game *Game) GetFloorNumber() int{
 	return game.floorNumber
 }
 
-func (game *Game) IncrementFloorNumber() {
-	game.floorNumber += 1
-}
-
 func (game *Game) Start(executionTime time.Duration) {
 	game.startedAt = executionTime
 }
@@ -199,15 +237,29 @@ func (game *Game) Finish() {
 }
 
 type State struct {
+	FieldEffects []*FieldEffect
 	// This is the total of main loop intervals.
 	// It is different from the real time.
 	executionTime time.Duration
 	field *Field
 	game *Game
+	mainLoopNumber int
+}
+
+func (state *State) GetMainLoopNumber() int {
+	return state.mainLoopNumber
+}
+
+func (state *State) IncrementMainLoopNumber() {
+	state.mainLoopNumber += 1
 }
 
 func (state *State) GetExecutionTime() time.Duration {
 	return state.executionTime
+}
+
+func (state *State) AlterExecutionTime(delta time.Duration) {
+	state.executionTime = state.executionTime + delta
 }
 
 func (state *State) GetField() *Field {
@@ -216,10 +268,6 @@ func (state *State) GetField() *Field {
 
 func (state *State) GetGame() *Game {
 	return state.game
-}
-
-func (state *State) AlterExecutionTime(delta time.Duration) {
-	state.executionTime = state.executionTime + delta
 }
 
 func (state *State) SetWelcomeData() error {
@@ -259,6 +307,7 @@ func (state *State) SetWelcomeData() error {
 func CreateState() *State {
 	executionTime, _ := time.ParseDuration("0")
 	state := &State{
+		mainLoopNumber: 1,
 		executionTime: executionTime,
 		field: createField(13, 21),
 		game: &Game{},

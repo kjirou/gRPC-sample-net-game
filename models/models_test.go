@@ -2,11 +2,30 @@ package models
 
 import (
 	"fmt"
-	"github.com/kjirou/gRPC-sample-net-game/utils"
+	"strings"
 	"testing"
 	"time"
-	"strings"
+
+	"github.com/kjirou/gRPC-sample-net-game/utils"
 )
+
+func TestFieldEffect_CalculateRemainingDuration_NotTD(t *testing.T) {
+	t.Run("3F持続する効果を5F目に作成したとき、6F目には残り2F持続すると計算する", func(t *testing.T) {
+		effect := &FieldEffect{duration: 3, createdAt: 5}
+		remainingDuration := effect.CalculateRemainingDuration(6)
+		if remainingDuration != 2 {
+			t.Fatal("計算された持続時間が違う")
+		}
+	})
+
+	t.Run("残り持続時間が負の値になるとき、0を返す", func(t *testing.T) {
+		effect := &FieldEffect{duration: 1, createdAt: 1}
+		remainingDuration := effect.CalculateRemainingDuration(99)
+		if remainingDuration != 0 {
+			t.Fatal("0ではない")
+		}
+	})
+}
 
 func TestField_At_NotTD(t *testing.T) {
 	field := createField(2, 3)
@@ -21,7 +40,7 @@ func TestField_At_NotTD(t *testing.T) {
 	})
 
 	t.Run("存在しない位置を指定したとき", func(t *testing.T) {
-		type testCase struct{
+		type testCase struct {
 			Y int
 			X int
 		}
@@ -172,6 +191,17 @@ func TestGame_Start_NotTD(t *testing.T) {
 		}
 		if game.IsFinished() {
 			t.Fatal("終了している")
+		}
+	})
+}
+
+func TestState_IncrementMainLoopNumber_NotTD(t *testing.T) {
+	t.Run("mainLoopNumberへ1を加算する", func(t *testing.T) {
+		state := &State{}
+		beforeMainLoopNumber := state.mainLoopNumber
+		state.IncrementMainLoopNumber()
+		if (beforeMainLoopNumber + 1) != state.mainLoopNumber {
+			t.Fatal("1が加算されていない")
 		}
 	})
 }

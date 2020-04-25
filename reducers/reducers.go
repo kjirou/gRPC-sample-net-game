@@ -19,28 +19,32 @@ func proceedMainLoopFrame(state *models.State, elapsedTime time.Duration) (*mode
 	game := state.GetGame()
 	field := state.GetField()
 
+	// Clean field effects.
+	field.CleanFieldEffects()
+
+	// Remove timeouted field effects.
+	newFieldEffects := make([]*models.FieldEffect, 0)
+	for _, fieldEffect := range state.FieldEffects {
+		if fieldEffect.CalculateRemainingDuration(state.GetMainLoopNumber()) > 0 {
+			newFieldEffects = append(newFieldEffects, fieldEffect)
+		}
+	}
+	state.FieldEffects = newFieldEffects
+
+	// Place field effects to field elements.
+	for _, fieldEffect := range state.FieldEffects {
+		for _, areaFlagment := range fieldEffect.Area {
+			fieldElement, fieldAtOk := field.At(areaFlagment)
+			if fieldAtOk {
+				fieldElement.FieldEffects = append(fieldElement.FieldEffects, fieldEffect)
+			}
+		}
+	}
+
+	// TODO: Apply field effects to objects.
+
 	// In the game.
 	if game.IsStarted() && !game.IsFinished() {
-		// The hero climbs up the stairs.
-		heroFieldElement, getElementOfHeroErr := field.GetElementOfHero()
-		if getElementOfHeroErr != nil {
-			return state, errors.WithStack(getElementOfHeroErr)
-		}
-		if (heroFieldElement.GetFloorObjectClass() == "upstairs") {
-			// Generate a new maze.
-			// Remove the hero.
-			err := field.ResetMaze()
-			if err != nil {
-				return state, errors.WithStack(err)
-			}
-
-			// Relocate the hero to the entrance.
-			replacedHeroFieldElement, _ := field.At(models.HeroPosition)
-			replacedHeroFieldElement.UpdateObjectClass("hero")
-
-			game.IncrementFloorNumber()
-		}
-
 		// Time over of this game.
 		remainingTime := game.CalculateRemainingTime(state.GetExecutionTime())
 		if remainingTime == 0 {
@@ -49,6 +53,7 @@ func proceedMainLoopFrame(state *models.State, elapsedTime time.Duration) (*mode
 	}
 
 	state.AlterExecutionTime(elapsedTime)
+	state.IncrementMainLoopNumber()
 
 	return state, nil
 }
@@ -116,5 +121,19 @@ func WalkHero(state models.State, elapsedTime time.Duration, direction FourDirec
 			return &state, errors.WithStack(err)
 		}
 	}
+	return proceedMainLoopFrame(&state, elapsedTime)
+}
+
+func HeroActs(state models.State, elapsedTime time.Duration) (*models.State, error) {
+	field := state.GetField()
+
+	heroElement, getElementOfHeroErr := field.GetElementOfHero()
+	if getElementOfHeroErr != nil {
+		return &state, errors.WithStack(getElementOfHeroErr)
+	}
+
+	adventurer := models.Adventurer{}
+	additionalFieldEffects := adventurer.Act(state.GetMainLoopNumber(), heroElement.GetPosition())
+	state.FieldEffects = append(state.FieldEffects, additionalFieldEffects...)
 	return proceedMainLoopFrame(&state, elapsedTime)
 }
