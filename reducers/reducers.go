@@ -64,18 +64,7 @@ func AdvanceOnlyTime(state models.State, elapsedTime time.Duration) (*models.Sta
 
 func StartOrRestartGame(state models.State, elapsedTime time.Duration) (*models.State, error) {
 	game := state.GetGame()
-	field := state.GetField()
-
-	// Generate a new maze.
-	// Remove the hero.
-	err := field.ResetMaze()
-	if err != nil {
-		return &state, errors.WithStack(err)
-	}
-
-	// Replace the hero.
-	heroFieldElement, _ := field.At(models.HeroPosition)
-	heroFieldElement.UpdateObjectClass("hero")
+	//field := state.GetField()
 
 	// Start the new game.
 	game.Reset()

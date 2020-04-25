@@ -37,9 +37,6 @@ type screenText struct {
 
 type ScreenProps struct {
 	FieldCells [][]*ScreenCellProps
-	FloorNumber int
-	LankMessage string
-	LankMessageForeground termbox.Attribute
 	RemainingTime float64
 }
 
@@ -115,20 +112,6 @@ func (screen *Screen) Render(props *ScreenProps) {
 		Foreground: termbox.ColorWhite,
 	}
 	texts = append(texts, timeText)
-	floorNumberText := &screenText{
-		Position: &utils.MatrixPosition{Y: 4, X: 25},
-		Text: fmt.Sprintf("Floor: %2d", props.FloorNumber),
-		Foreground: termbox.ColorWhite,
-	}
-	texts = append(texts, floorNumberText)
-	if props.LankMessage != "" {
-		lankText := &screenText{
-			Position: &utils.MatrixPosition{Y: 5, X: 27},
-			Text: props.LankMessage,
-			Foreground: props.LankMessageForeground,
-		}
-		texts = append(texts, lankText)
-	}
 
 	// Place texts.
 	for _, textInstance := range texts {

@@ -145,27 +145,6 @@ func (field *Field) MoveObject(from *utils.MatrixPosition, to *utils.MatrixPosit
 	return nil
 }
 
-func (field *Field) ResetMaze() error {
-	rowLength := field.MeasureRowLength()
-	columnLength := field.MeasureColumnLength()
-	mazeCells, err := utils.GenerateMaze(rowLength, columnLength)
-	if err != nil {
-		return err
-	}
-	for y, mazeRow := range mazeCells {
-		for x, mazeCell := range mazeRow {
-			element, _ := field.At(&utils.MatrixPosition{Y: y, X: x})
-			switch mazeCell.Content {
-			case utils.MazeCellContentEmpty:
-				element.UpdateObjectClass("empty")
-			case utils.MazeCellContentUnbreakableWall:
-				element.UpdateObjectClass("wall")
-			}
-		}
-	}
-	return nil
-}
-
 func createField(y int, x int) *Field {
 	matrix := make([][]*FieldElement, y)
 	for rowIndex := 0; rowIndex < y; rowIndex++ {
@@ -188,7 +167,6 @@ func createField(y int, x int) *Field {
 }
 
 type Game struct {
-	floorNumber int
 	isFinished bool
 	// A snapshot of `state.executionTime` when a game has started.
 	startedAt time.Duration
@@ -197,7 +175,6 @@ type Game struct {
 func (game *Game) Reset() {
 	zeroDuration, _ := time.ParseDuration("0s")
 	game.startedAt = zeroDuration
-	game.floorNumber = 1
 	game.isFinished = false
 }
 
@@ -222,10 +199,6 @@ func (game *Game) CalculateRemainingTime(executionTime time.Duration) time.Durat
 		return remainingTime
 	}
 	return oneGameTime
-}
-
-func (game *Game) GetFloorNumber() int{
-	return game.floorNumber
 }
 
 func (game *Game) Start(executionTime time.Duration) {

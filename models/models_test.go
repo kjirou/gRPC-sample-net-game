@@ -123,39 +123,6 @@ func TestField_MoveObject_NotTD(t *testing.T) {
 	})
 }
 
-func TestField_ResetMaze_NotTD(t *testing.T) {
-	t.Run("外周1マスは壁になる", func(t *testing.T) {
-		field := createField(7, 7)
-		field.ResetMaze()
-		for y, row := range field.matrix {
-			for x, element := range row {
-				isTopOrBottomEdge := y == 0 || y == field.MeasureRowLength()-1
-				isLeftOrRightEdge := x == 0 || x == field.MeasureColumnLength()-1
-				if (isTopOrBottomEdge || isLeftOrRightEdge) && element.GetObjectClass() != "wall" {
-					t.Fatalf("Y=%d, X=%d が壁ではない", y, x)
-				}
-			}
-		}
-	})
-
-	t.Run("ヒーローが存在していたとき、ヒーローは削除される", func(t *testing.T) {
-		field := createField(7, 7)
-		element, elementOk := field.At(HeroPosition)
-		if !elementOk {
-			t.Fatal("ヒーローの配置に失敗する")
-		}
-		element.UpdateObjectClass("hero")
-		field.ResetMaze()
-		for _, row := range field.matrix {
-			for _, element := range row {
-				if element.GetObjectClass() == "hero" {
-					t.Fatal("ヒーローが存在している")
-				}
-			}
-		}
-	})
-}
-
 func TestGame_CalculateRemainingTime_NotTD(t *testing.T) {
 	game := &Game{}
 
