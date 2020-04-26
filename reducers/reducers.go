@@ -15,6 +15,8 @@ const (
 	FourDirectionLeft
 )
 
+// TODO: 一部の操作は接続中プレイヤーが操作中のAvatorの抽出が前提になるはず。
+
 func proceedMainLoopFrame(state *models.State, elapsedTime time.Duration) (*models.State, error) {
 	game := state.GetGame()
 	field := state.GetField()
@@ -74,18 +76,16 @@ func StartOrRestartGame(state models.State, elapsedTime time.Duration) (*models.
 }
 
 func WalkHero(state models.State, elapsedTime time.Duration, direction FourDirection) (*models.State, error) {
-	game := state.GetGame()
-	if game.IsFinished() {
+	//game := state.GetGame()
+	field := state.GetField()
+
+	avatorElement, avatorElementOk := field.FindElementWithAvatorIfPossible()
+	if !avatorElementOk {
 		return &state, nil
 	}
 
-	field := state.GetField()
-	element, getElementOfHeroErr := field.GetElementOfHero()
-	if getElementOfHeroErr != nil {
-		return &state, errors.WithStack(getElementOfHeroErr)
-	}
-	nextY := element.GetPosition().GetY()
-	nextX := element.GetPosition().GetX()
+	nextY := avatorElement.GetPosition().GetY()
+	nextX := avatorElement.GetPosition().GetX()
 	switch direction {
 	case FourDirectionUp:
 		nextY -= 1
@@ -96,18 +96,19 @@ func WalkHero(state models.State, elapsedTime time.Duration, direction FourDirec
 	case FourDirectionLeft:
 		nextX -= 1
 	}
-	position := element.GetPosition()
+	position := avatorElement.GetPosition()
 	nextPosition := &utils.MatrixPosition{
 		Y: nextY,
 		X: nextX,
 	}
-	if nextPosition.Validate(field.MeasureRowLength(), field.MeasureColumnLength()) {
-		element, elementOk := field.At(nextPosition)
-		if !elementOk {
-			return &state, errors.Errorf("The %v position does not exist on the field.", nextPosition)
-		} else if element.IsObjectEmpty() {
-			err := field.MoveObject(position, nextPosition)
-			return &state, errors.WithStack(err)
+	nextElement, nextElementOk := field.At(nextPosition)
+	if nextElementOk {
+		_, nextElementObjectExists := nextElement.GetFieldObjectIfPossible()
+		if !nextElementObjectExists {
+			moveObjectErr := field.MoveObject(position, nextPosition)
+			if moveObjectErr != nil {
+				return &state, errors.WithStack(moveObjectErr)
+			}
 		}
 	}
 	return proceedMainLoopFrame(&state, elapsedTime)
@@ -116,13 +117,14 @@ func WalkHero(state models.State, elapsedTime time.Duration, direction FourDirec
 func HeroActs(state models.State, elapsedTime time.Duration) (*models.State, error) {
 	field := state.GetField()
 
-	heroElement, getElementOfHeroErr := field.GetElementOfHero()
-	if getElementOfHeroErr != nil {
-		return &state, errors.WithStack(getElementOfHeroErr)
+	avatorElement, avatorElementOk := field.FindElementWithAvatorIfPossible()
+	if !avatorElementOk {
+		return &state, nil
 	}
+	avatorObject, _ := avatorElement.GetFieldObjectIfPossible()
 
-	adventurer := models.Adventurer{}
-	additionalFieldEffects := adventurer.Act(state.GetMainLoopNumber(), heroElement.GetPosition())
+	additionalFieldEffects := avatorObject.Act(state.GetMainLoopNumber(), avatorElement.GetPosition())
 	state.FieldEffects = append(state.FieldEffects, additionalFieldEffects...)
+
 	return proceedMainLoopFrame(&state, elapsedTime)
 }

@@ -24,28 +24,10 @@ func (fieldEffect *FieldEffect) CalculateRemainingDuration(mainLoopNumber int) i
 	return remainingDuration
 }
 
-type Adventurer struct {
-}
-
-func (adventurer *Adventurer) Act(mainLoopNumber int, position *utils.MatrixPosition) []*FieldEffect {
-	fieldEffects := make([]*FieldEffect, 0)
-	fieldEffects = append(fieldEffects, &FieldEffect{
-		Area: []*utils.MatrixPosition{
-			&utils.MatrixPosition{
-				Y: position.GetY() - 1,
-				X: position.GetX(),
-			},
-		},
-		duration: 3,
-		createdAt: mainLoopNumber,
-	})
-	return fieldEffects
-}
-
 type FieldElement struct {
 	FieldEffects []*FieldEffect
+	fieldObject FieldObject
 	floorObjectClass string
-	objectClass string
 	position *utils.MatrixPosition
 }
 
@@ -53,20 +35,17 @@ func (fieldElement *FieldElement) GetPosition() *utils.MatrixPosition {
 	return fieldElement.position
 }
 
-func (fieldElement *FieldElement) GetObjectClass() string {
-	return fieldElement.objectClass
+// TODO: 障害物の場合は 0or1 個だが、非障害物の場合は 0-n 個になる。障害物前提にできるかがまだわからない。
+func (fieldElement *FieldElement) GetFieldObjectIfPossible() (FieldObject, bool) {
+	return fieldElement.fieldObject, fieldElement.fieldObject != nil
+}
+
+func (fieldElement *FieldElement) SetFieldObject(fieldObject FieldObject) {
+	fieldElement.fieldObject = fieldObject
 }
 
 func (fieldElement *FieldElement) GetFloorObjectClass() string {
 	return fieldElement.floorObjectClass
-}
-
-func (fieldElement *FieldElement) IsObjectEmpty() bool {
-	return fieldElement.objectClass == "empty"
-}
-
-func (fieldElement *FieldElement) UpdateObjectClass(class string) {
-	fieldElement.objectClass = class
 }
 
 func (fieldElement *FieldElement) UpdateFloorObjectClass(class string) {
@@ -75,6 +54,11 @@ func (fieldElement *FieldElement) UpdateFloorObjectClass(class string) {
 
 type Field struct {
 	matrix [][]*FieldElement
+}
+
+// TODO: 最終的には隠蔽するか、Field.Matrix で露出するかのどちらかにする。
+func (field *Field) GetMatrix() [][]*FieldElement {
+	return field.matrix
 }
 
 func (field *Field) CleanFieldEffects() {
@@ -104,44 +88,46 @@ func (field *Field) At(position *utils.MatrixPosition) (*FieldElement, bool) {
 	return field.matrix[y][x], true
 }
 
-func (field *Field) findElementsByObjectClass(objectClass string) []*FieldElement {
-	elements := make([]*FieldElement, 0)
+func (field *Field) FindElementWithAvatorIfPossible() (*FieldElement, bool) {
 	for _, row := range field.matrix {
 		for _, element := range row {
-			if element.objectClass == objectClass {
-				element_ := element
-				elements = append(elements, element_)
+			object, objectOk := element.GetFieldObjectIfPossible()
+			if objectOk {
+				// TODO: 本来は複数のアバターが存在するから、検索条件が不十分なはず。
+				if object.GetClass() == "avator" {
+					return element, true
+				}
 			}
 		}
 	}
-	return elements
-}
-
-func (field *Field) GetElementOfHero() (*FieldElement, error) {
-	elements := field.findElementsByObjectClass("hero")
-	if len(elements) == 0 {
-		return &FieldElement{}, errors.Errorf("The hero does not exist.")
-	} else if len(elements) > 1 {
-		return &FieldElement{}, errors.Errorf("There are multiple heroes.")
-	}
-	return elements[0], nil
+	return nil, false
 }
 
 func (field *Field) MoveObject(from *utils.MatrixPosition, to *utils.MatrixPosition) error {
 	fromElement, fromElementOk := field.At(from)
 	if !fromElementOk {
 		return errors.New("The `from` position does not exist on the field.")
-	} else if fromElement.IsObjectEmpty() {
-		return errors.New("The object to be moved does not exist.")
+	} else {
+		_, fromElementObjectExists := fromElement.GetFieldObjectIfPossible()
+		if !fromElementObjectExists {
+			return errors.New("The object to be moved does not exist.")
+		}
 	}
+
 	toElement, toElementOk := field.At(to)
 	if !toElementOk {
 		return errors.New("The `to` position does not exist on the field.")
-	} else if !toElement.IsObjectEmpty() {
-		return errors.New("An object exists at the destination.")
+	} else {
+		_, toElementObjectExists := toElement.GetFieldObjectIfPossible()
+		if toElementObjectExists {
+			return errors.New("An object exists at the destination.")
+		}
 	}
-	toElement.UpdateObjectClass(fromElement.GetObjectClass())
-	fromElement.UpdateObjectClass("empty")
+
+	fromElementObject, _ := fromElement.GetFieldObjectIfPossible()
+	fromElement.SetFieldObject(nil)
+	toElement.SetFieldObject(fromElementObject)
+
 	return nil
 }
 
@@ -155,7 +141,6 @@ func createField(y int, x int) *Field {
 					Y: rowIndex,
 					X: columnIndex,
 				},
-				objectClass: "empty",
 				floorObjectClass: "empty",
 			}
 		}
@@ -211,6 +196,7 @@ func (game *Game) Finish() {
 
 type State struct {
 	FieldEffects []*FieldEffect
+	FieldObjects []*FieldObject
 	// This is the total of main loop intervals.
 	// It is different from the real time.
 	executionTime time.Duration
@@ -251,7 +237,8 @@ func (state *State) SetWelcomeData() error {
 	if !heroFieldElementOk {
 		return errors.New("The hero's position does not exist on the field.")
 	}
-	heroFieldElement.UpdateObjectClass("hero")
+	var hero FieldObject = &avatorFieldObject{}
+	heroFieldElement.SetFieldObject(hero)
 
 	// Place an upstairs.
 	upstairsFieldElement, upstairsFieldElementOk := field.At(UpstairsPosition)
@@ -269,7 +256,8 @@ func (state *State) SetWelcomeData() error {
 			isLeftOrRightEdge := x == 0 || x == fieldColumnLength-1
 			if isTopOrBottomEdge || isLeftOrRightEdge {
 				elem, _ := field.At(&utils.MatrixPosition{Y: y, X: x})
-				elem.UpdateObjectClass("wall")
+				var wall FieldObject = &wallFieldObject{}
+				elem.SetFieldObject(wall)
 			}
 		}
 	}

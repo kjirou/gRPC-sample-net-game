@@ -32,9 +32,10 @@ func mapFieldElementToScreenCellProps(fieldElement *models.FieldElement) *views.
 	symbol := '.'
 	fg := termbox.ColorWhite
 	bg := termbox.ColorBlack
-	if !fieldElement.IsObjectEmpty() {
-		switch fieldElement.GetObjectClass() {
-		case "hero":
+	object, objectOk := fieldElement.GetFieldObjectIfPossible()
+	if objectOk {
+		switch object.GetClass() {
+		case "avator":
 			symbol = '@'
 			fg = termbox.ColorMagenta
 		case "wall":
@@ -65,11 +66,12 @@ func mapStateModelToScreenProps(state *models.State) (*views.ScreenProps, error)
 	game := state.GetGame()
 	field := state.GetField()
 
-	heroElement, heroElementErr := field.GetElementOfHero()
-	if heroElementErr != nil {
-		return nil, errors.WithStack(heroElementErr)
+	// The position of a FieldElement it centers on the screen.
+	centerPosition := &utils.MatrixPosition{Y: 0, X: 0}
+	avatorElement, avatorElementOk := field.FindElementWithAvatorIfPossible()
+	if avatorElementOk {
+		centerPosition = avatorElement.GetPosition()
 	}
-	heroPosition := heroElement.GetPosition()
 
 	// Cells of the field.
 	fieldCellsRowLength := 13
@@ -83,8 +85,8 @@ func mapStateModelToScreenProps(state *models.State) (*views.ScreenProps, error)
 		cellsRow := make([]*views.ScreenCellProps, fieldCellsColumnLength)
 		for x := 0; x < fieldCellsColumnLength; x++ {
 			fieldElement, fieldElementOk := field.At(&utils.MatrixPosition{
-				Y: y - fieldCellsCenterPosition.GetY() + heroPosition.GetY(),
-				X: x - fieldCellsCenterPosition.GetX() + heroPosition.GetX(),
+				Y: y - fieldCellsCenterPosition.GetY() + centerPosition.GetY(),
+				X: x - fieldCellsCenterPosition.GetX() + centerPosition.GetX(),
 			})
 			if fieldElementOk {
 				cellsRow[x] = mapFieldElementToScreenCellProps(fieldElement)
