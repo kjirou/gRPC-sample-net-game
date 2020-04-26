@@ -194,9 +194,14 @@ func (game *Game) Finish() {
 	game.isFinished = true
 }
 
+type indexedFieldObject struct {
+	FieldObject FieldObject
+	Position *utils.MatrixPosition
+}
+
 type State struct {
 	FieldEffects []*FieldEffect
-	FieldObjects []*FieldObject
+	IndexedFieldObjects []*indexedFieldObject
 	// This is the total of main loop intervals.
 	// It is different from the real time.
 	executionTime time.Duration
@@ -275,4 +280,41 @@ func CreateState() *State {
 	}
 	state.game.Reset()
 	return state
+}
+
+func AppendIndexedFieldObject(indexedFieldObjects []*indexedFieldObject, fieldObject FieldObject) error {
+	return nil
+}
+
+func RemoveIndexedFieldObjectByFieldObject(
+	indexedFieldObjects []*indexedFieldObject,
+	target FieldObject) ([]*indexedFieldObject, error) {
+	newIndexedFieldObjects := make([]*indexedFieldObject, 0)
+	for i, indexedFieldObject := range indexedFieldObjects {
+		if indexedFieldObject.FieldObject == target {
+			if indexedFieldObject.Position != nil {
+				return newIndexedFieldObjects, errors.New("The targetted field object is still in placed.")
+			} else {
+				newIndexedFieldObjects = append(newIndexedFieldObjects, indexedFieldObjects[:i]...)
+				newIndexedFieldObjects = append(newIndexedFieldObjects, indexedFieldObjects[i+1:]...)
+				return newIndexedFieldObjects, nil
+			}
+		}
+	}
+	return newIndexedFieldObjects, errors.New("The targetted field object does not exist.")
+}
+
+func PlaceFieldObject(
+	field *Field,
+	indexedFieldObjects []*indexedFieldObject,
+	fieldObject FieldObject,
+	to *utils.MatrixPosition) error {
+	return nil
+}
+
+func UnplaceFieldObject(
+	field *Field,
+	indexedFieldObjects []*indexedFieldObject,
+	fieldObject FieldObject) error {
+	return nil
 }

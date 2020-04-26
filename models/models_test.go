@@ -2,30 +2,13 @@ package models
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/kjirou/gRPC-sample-net-game/utils"
 )
-
-func TestFieldEffect_CalculateRemainingDuration_NotTD(t *testing.T) {
-	t.Run("3F持続する効果を5F目に作成したとき、6F目には残り2F持続すると計算する", func(t *testing.T) {
-		effect := &FieldEffect{duration: 3, createdAt: 5}
-		remainingDuration := effect.CalculateRemainingDuration(6)
-		if remainingDuration != 2 {
-			t.Fatal("計算された持続時間が違う")
-		}
-	})
-
-	t.Run("残り持続時間が負の値になるとき、0を返す", func(t *testing.T) {
-		effect := &FieldEffect{duration: 1, createdAt: 1}
-		remainingDuration := effect.CalculateRemainingDuration(99)
-		if remainingDuration != 0 {
-			t.Fatal("0ではない")
-		}
-	})
-}
 
 func TestField_At_NotTD(t *testing.T) {
 	field := createField(2, 3)
@@ -61,68 +44,6 @@ func TestField_At_NotTD(t *testing.T) {
 	})
 }
 
-func TestField_GetElementOfHero_NotTD(t *testing.T) {
-	t.Run("ヒーローが存在しないときはエラーを返す", func(t *testing.T) {
-		field := createField(3, 5)
-		_, err := field.GetElementOfHero()
-		if err == nil {
-			t.Fatal("エラーを返さない")
-		} else if !strings.Contains(err.Error(), "does not exist") {
-			t.Fatal("意図したエラーメッセージではない")
-		}
-	})
-
-	t.Run("ヒーローが複数存在するときはエラーを返す", func(t *testing.T) {
-		field := createField(3, 5)
-		field.matrix[0][0].UpdateObjectClass("hero")
-		field.matrix[0][1].UpdateObjectClass("hero")
-		_, err := field.GetElementOfHero()
-		if err == nil {
-			t.Fatal("エラーを返さない")
-		} else if !strings.Contains(err.Error(), " multiple ") {
-			t.Fatal("意図したエラーメッセージではない")
-		}
-	})
-}
-
-func TestField_MoveObject_NotTD(t *testing.T) {
-	field := createField(2, 3)
-	fromPosition := &utils.MatrixPosition{Y: 0, X: 0}
-	toPosition := &utils.MatrixPosition{Y: 1, X: 2}
-	fromElement, _ := field.At(fromPosition)
-	toElement, _ := field.At(toPosition)
-
-	t.Run("始点の物体が空ではなく、終点の物体が空のとき、物体種別が移動する", func(t *testing.T) {
-		fromElement.UpdateObjectClass("wall")
-		toElement.UpdateObjectClass("empty")
-		field.MoveObject(fromPosition, toPosition)
-		if toElement.GetObjectClass() != "wall" {
-			t.Fatal("物体種別が移動していない")
-		}
-	})
-
-	t.Run("始点の物体が空ではなく、終点の物体が空ではないとき、エラーを返す", func(t *testing.T) {
-		fromElement.UpdateObjectClass("wall")
-		toElement.UpdateObjectClass("wall")
-		err := field.MoveObject(fromPosition, toPosition)
-		if err == nil {
-			t.Fatal("エラーを返さない")
-		} else if !strings.Contains(err.Error(), "object exists") {
-			t.Fatal("意図したエラーメッセージではない")
-		}
-	})
-
-	t.Run("始点の物体が空のとき、エラーを返す", func(t *testing.T) {
-		fromElement.UpdateObjectClass("empty")
-		err := field.MoveObject(fromPosition, toPosition)
-		if err == nil {
-			t.Fatal("エラーを返さない")
-		} else if !strings.Contains(err.Error(), "does not exist") {
-			t.Fatal("意図したエラーメッセージではない")
-		}
-	})
-}
-
 func TestGame_CalculateRemainingTime_NotTD(t *testing.T) {
 	game := &Game{}
 
@@ -147,28 +68,67 @@ func TestGame_CalculateRemainingTime_NotTD(t *testing.T) {
 	})
 }
 
-func TestGame_Start_NotTD(t *testing.T) {
-	game := &Game{}
-
-	t.Run("It works", func(t *testing.T) {
-		executionTime, _ := time.ParseDuration("0s")
-		game.Start(executionTime)
-		if game.IsStarted() {
-			t.Fatal("開始している")
+func TestRemoveIndexedFieldObjectByFieldObject_NotTD(t *testing.T) {
+	t.Run("目標が存在して未配置のとき、リストからそれを削除できる", func(t *testing.T) {
+		target := &wallFieldObject{}
+		one := &indexedFieldObject{
+			FieldObject: &wallFieldObject{},
 		}
-		if game.IsFinished() {
-			t.Fatal("終了している")
+		two := &indexedFieldObject{
+			FieldObject: target,
+		}
+		three := &indexedFieldObject{
+			FieldObject: &wallFieldObject{},
+		}
+		indexedFieldObjects := []*indexedFieldObject{
+			one,
+			two,
+			three,
+		}
+		newIndexedFieldObjects, err := RemoveIndexedFieldObjectByFieldObject(indexedFieldObjects, target)
+		if err != nil {
+			t.Fatal("エラーを返している")
+		}
+		if !reflect.DeepEqual(
+			newIndexedFieldObjects,
+			[]*indexedFieldObject{
+				one,
+				three,
+			},
+		) {
+			t.Fatal("削除されていないか誤った要素を削除している")
 		}
 	})
-}
 
-func TestState_IncrementMainLoopNumber_NotTD(t *testing.T) {
-	t.Run("mainLoopNumberへ1を加算する", func(t *testing.T) {
-		state := &State{}
-		beforeMainLoopNumber := state.mainLoopNumber
-		state.IncrementMainLoopNumber()
-		if (beforeMainLoopNumber + 1) != state.mainLoopNumber {
-			t.Fatal("1が加算されていない")
+	t.Run("目標が存在して配置中のとき、エラーを返す", func(t *testing.T) {
+		target := &wallFieldObject{}
+		indexedFieldObjects := []*indexedFieldObject{
+			&indexedFieldObject{
+				FieldObject: target,
+				Position: &utils.MatrixPosition{},
+			},
+		}
+		_, err := RemoveIndexedFieldObjectByFieldObject(indexedFieldObjects, target)
+		if err == nil {
+			t.Fatal("エラーを返さない")
+		} else if !strings.Contains(err.Error(), " in placed") {
+			t.Fatal("意図したエラーメッセージではない")
+		}
+	})
+
+	t.Run("目標が存在しないとき、エラーを返す", func(t *testing.T) {
+		target := &wallFieldObject{}
+		indexedFieldObjects := []*indexedFieldObject{
+			&indexedFieldObject{
+				FieldObject: &wallFieldObject{},
+				Position: &utils.MatrixPosition{},
+			},
+		}
+		_, err := RemoveIndexedFieldObjectByFieldObject(indexedFieldObjects, target)
+		if err == nil {
+			t.Fatal("エラーを返さない")
+		} else if !strings.Contains(err.Error(), " does not exist") {
+			t.Fatal("意図したエラーメッセージではない")
 		}
 	})
 }
