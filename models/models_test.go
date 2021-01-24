@@ -2,10 +2,12 @@ package models
 
 import (
 	"fmt"
-	"github.com/kjirou/gRPC-sample-net-game/utils"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
-	"strings"
+
+	"github.com/kjirou/gRPC-sample-net-game/utils"
 )
 
 func TestField_At_NotTD(t *testing.T) {
@@ -21,7 +23,7 @@ func TestField_At_NotTD(t *testing.T) {
 	})
 
 	t.Run("存在しない位置を指定したとき", func(t *testing.T) {
-		type testCase struct{
+		type testCase struct {
 			Y int
 			X int
 		}
@@ -38,101 +40,6 @@ func TestField_At_NotTD(t *testing.T) {
 					t.Fatal("falseを返さない")
 				}
 			})
-		}
-	})
-}
-
-func TestField_GetElementOfHero_NotTD(t *testing.T) {
-	t.Run("ヒーローが存在しないときはエラーを返す", func(t *testing.T) {
-		field := createField(3, 5)
-		_, err := field.GetElementOfHero()
-		if err == nil {
-			t.Fatal("エラーを返さない")
-		} else if !strings.Contains(err.Error(), "does not exist") {
-			t.Fatal("意図したエラーメッセージではない")
-		}
-	})
-
-	t.Run("ヒーローが複数存在するときはエラーを返す", func(t *testing.T) {
-		field := createField(3, 5)
-		field.matrix[0][0].UpdateObjectClass("hero")
-		field.matrix[0][1].UpdateObjectClass("hero")
-		_, err := field.GetElementOfHero()
-		if err == nil {
-			t.Fatal("エラーを返さない")
-		} else if !strings.Contains(err.Error(), " multiple ") {
-			t.Fatal("意図したエラーメッセージではない")
-		}
-	})
-}
-
-func TestField_MoveObject_NotTD(t *testing.T) {
-	field := createField(2, 3)
-	fromPosition := &utils.MatrixPosition{Y: 0, X: 0}
-	toPosition := &utils.MatrixPosition{Y: 1, X: 2}
-	fromElement, _ := field.At(fromPosition)
-	toElement, _ := field.At(toPosition)
-
-	t.Run("始点の物体が空ではなく、終点の物体が空のとき、物体種別が移動する", func(t *testing.T) {
-		fromElement.UpdateObjectClass("wall")
-		toElement.UpdateObjectClass("empty")
-		field.MoveObject(fromPosition, toPosition)
-		if toElement.GetObjectClass() != "wall" {
-			t.Fatal("物体種別が移動していない")
-		}
-	})
-
-	t.Run("始点の物体が空ではなく、終点の物体が空ではないとき、エラーを返す", func(t *testing.T) {
-		fromElement.UpdateObjectClass("wall")
-		toElement.UpdateObjectClass("wall")
-		err := field.MoveObject(fromPosition, toPosition)
-		if err == nil {
-			t.Fatal("エラーを返さない")
-		} else if !strings.Contains(err.Error(), "object exists") {
-			t.Fatal("意図したエラーメッセージではない")
-		}
-	})
-
-	t.Run("始点の物体が空のとき、エラーを返す", func(t *testing.T) {
-		fromElement.UpdateObjectClass("empty")
-		err := field.MoveObject(fromPosition, toPosition)
-		if err == nil {
-			t.Fatal("エラーを返さない")
-		} else if !strings.Contains(err.Error(), "does not exist") {
-			t.Fatal("意図したエラーメッセージではない")
-		}
-	})
-}
-
-func TestField_ResetMaze_NotTD(t *testing.T) {
-	t.Run("外周1マスは壁になる", func(t *testing.T) {
-		field := createField(7, 7)
-		field.ResetMaze()
-		for y, row := range field.matrix {
-			for x, element := range row {
-				isTopOrBottomEdge := y == 0 || y == field.MeasureRowLength()-1
-				isLeftOrRightEdge := x == 0 || x == field.MeasureColumnLength()-1
-				if (isTopOrBottomEdge || isLeftOrRightEdge) && element.GetObjectClass() != "wall" {
-					t.Fatalf("Y=%d, X=%d が壁ではない", y, x)
-				}
-			}
-		}
-	})
-
-	t.Run("ヒーローが存在していたとき、ヒーローは削除される", func(t *testing.T) {
-		field := createField(7, 7)
-		element, elementOk := field.At(HeroPosition)
-		if !elementOk {
-			t.Fatal("ヒーローの配置に失敗する")
-		}
-		element.UpdateObjectClass("hero")
-		field.ResetMaze()
-		for _, row := range field.matrix {
-			for _, element := range row {
-				if element.GetObjectClass() == "hero" {
-					t.Fatal("ヒーローが存在している")
-				}
-			}
 		}
 	})
 }
@@ -161,17 +68,67 @@ func TestGame_CalculateRemainingTime_NotTD(t *testing.T) {
 	})
 }
 
-func TestGame_Start_NotTD(t *testing.T) {
-	game := &Game{}
-
-	t.Run("It works", func(t *testing.T) {
-		executionTime, _ := time.ParseDuration("0s")
-		game.Start(executionTime)
-		if game.IsStarted() {
-			t.Fatal("開始している")
+func TestRemoveIndexedFieldObjectByFieldObject_NotTD(t *testing.T) {
+	t.Run("目標が存在して未配置のとき、リストからそれを削除できる", func(t *testing.T) {
+		target := &wallFieldObject{}
+		one := &indexedFieldObject{
+			FieldObject: &wallFieldObject{},
 		}
-		if game.IsFinished() {
-			t.Fatal("終了している")
+		two := &indexedFieldObject{
+			FieldObject: target,
+		}
+		three := &indexedFieldObject{
+			FieldObject: &wallFieldObject{},
+		}
+		indexedFieldObjects := []*indexedFieldObject{
+			one,
+			two,
+			three,
+		}
+		newIndexedFieldObjects, err := RemoveIndexedFieldObjectByFieldObject(indexedFieldObjects, target)
+		if err != nil {
+			t.Fatal("エラーを返している")
+		}
+		if !reflect.DeepEqual(
+			newIndexedFieldObjects,
+			[]*indexedFieldObject{
+				one,
+				three,
+			},
+		) {
+			t.Fatal("削除されていないか誤った要素を削除している")
+		}
+	})
+
+	t.Run("目標が存在して配置中のとき、エラーを返す", func(t *testing.T) {
+		target := &wallFieldObject{}
+		indexedFieldObjects := []*indexedFieldObject{
+			&indexedFieldObject{
+				FieldObject: target,
+				Position: &utils.MatrixPosition{},
+			},
+		}
+		_, err := RemoveIndexedFieldObjectByFieldObject(indexedFieldObjects, target)
+		if err == nil {
+			t.Fatal("エラーを返さない")
+		} else if !strings.Contains(err.Error(), " in placed") {
+			t.Fatal("意図したエラーメッセージではない")
+		}
+	})
+
+	t.Run("目標が存在しないとき、エラーを返す", func(t *testing.T) {
+		target := &wallFieldObject{}
+		indexedFieldObjects := []*indexedFieldObject{
+			&indexedFieldObject{
+				FieldObject: &wallFieldObject{},
+				Position: &utils.MatrixPosition{},
+			},
+		}
+		_, err := RemoveIndexedFieldObjectByFieldObject(indexedFieldObjects, target)
+		if err == nil {
+			t.Fatal("エラーを返さない")
+		} else if !strings.Contains(err.Error(), " does not exist") {
+			t.Fatal("意図したエラーメッセージではない")
 		}
 	})
 }
